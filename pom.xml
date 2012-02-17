@@ -1,0 +1,49 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.ovea</groupId>
+        <artifactId>ovea</artifactId>
+        <version>2</version>
+    </parent>
+
+    <artifactId>ovea-cors</artifactId>
+    <version>1.0.ga-SNAPSHOT</version>
+
+    <packaging>jar</packaging>
+
+    <name>ovea-cors</name>
+    <description>Better CORS support for IE 8+</description>
+
+    <scm>
+        <connection>scm:git:git@github.com:Ovea/cors.git</connection>
+        <developerConnection>scm:git:git@github.com:Ovea/cors.git</developerConnection>
+        <url>http://github.com/Ovea/cors</url>
+    </scm>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.mycila.maven-license-plugin</groupId>
+                <artifactId>maven-license-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>**/.gitignore</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>servlet-api</artifactId>
+            <version>3.0-alpha-1</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+</project>
+
