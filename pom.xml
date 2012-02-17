@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.ovea</groupId>
         <artifactId>ovea</artifactId>
-        <version>2</version>
+        <version>3</version>
     </parent>
 
     <artifactId>ovea-cors</artifactId>
@@ -22,6 +22,11 @@
         <url>http://github.com/Ovea/cors</url>
     </scm>
 
+    <properties>
+        <jdk.version>1.7</jdk.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
     <build>
         <plugins>
             <plugin>
@@ -30,6 +35,7 @@
                 <configuration>
                     <excludes>
                         <exclude>**/.gitignore</exclude>
+                        <exclude>.idea/**</exclude>
                     </excludes>
                 </configuration>
             </plugin>
