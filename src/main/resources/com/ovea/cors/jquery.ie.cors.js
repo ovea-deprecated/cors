@@ -83,62 +83,88 @@
             sessionCookie = sc in window ? window[sc] : "jsessionid",
             cookies = cks in window ? window[cks] : [],
             domain = parseUrl(document.location.href).domain,
-            ReadyState = {UNSENT:0, OPENED:1, HEADERS_RECEIVED:2, LOADING:3, DONE:4};
-
-        var XDomainRequestAdapter = function () {
-            var self = this,
-                _xdr = this._xdr = new XDomainRequest(),
-                done = function (state, code) {
-                    self.readyState = state;
-                    self.status = code;
-                    if (typeof self.onreadystatechange === 'function') {
-                        self.onreadystatechange.call(self);
-                    }
+            ReadyState = {UNSENT:0, OPENED:1, LOADING:3, DONE:4},
+            markMatcher = /(~(\d+)~(\d+)~).*/,
+            XDomainRequestAdapter = function () {
+                var self = this,
+                    _xdr = this._xdr = new XDomainRequest(),
+                    _requestHeaders = {},
+                    _responseHeaders = {},
+                    _mime,
+                    _setState = function (state) {
+                        self.readyState = state;
+                        if (typeof self.onreadystatechange === 'function') {
+                            self.onreadystatechange.call(self);
+                        }
+                    },
+                    _done = function (state, code) {
+                        self.status = code;
+                        if (!self.responseType) {
+                            _mime = _mime || _xdr.contentType;
+                            self.responseType = _mime && _mime.substr(0, 16).toLowerCase() === 'application/json' ? 'json' : 'text';
+                        }
+                        self.response = self.responseType === 'json' && self.responseText ? JSON.parse(self.responseText) : self.responseText;
+                        _setState(state);
+                    };
+                _xdr.onprogress = function () {
+                    _setState(ReadyState.LOADING);
                 };
-            this._requestHeaders = {};
-            this._responseHeaders = {};
-            _xdr.onprogress = function () {
-                self.readyState = ReadyState.LOADING;
-            };
-            _xdr.ontimeout = function () {
-                done(ReadyState.DONE, 408);
-            };
-            _xdr.onerror = function () {
-                done(ReadyState.DONE, 500);
-            };
-            _xdr.onload = function () {
-                // check if we are using a filter which modify the response
-                if (_xdr.responseText.length > 3) {
-
+                _xdr.ontimeout = function () {
+                    _done(ReadyState.DONE, 408);
+                };
+                _xdr.onerror = function () {
+                    _done(ReadyState.DONE, 500);
+                };
+                _xdr.onload = function () {
+                    // check if we are using a filter which modify the response
+                    var m, code = 200;
+                    if (_xdr.responseText.length >= 5 && (m = markMatcher.exec(_xdr.responseText.substr(0, 20)))) {
+                        var ml = m[1].length,
+                            hl = parseInt(m[2]),
+                            header = _xdr.responseText.substring(ml, ml + hl);
+                        //TODO MATHIEU - headers
+                        code = parseInt(m[3]);
+                        self.responseText = _xdr.responseText.substring(ml + hl);
+                        self.responseHeaders = {};
+                    } else {
+                        self.responseText = _xdr.responseText;
+                    }
+                    _done(ReadyState.DONE, code);
+                };
+                this.readyState = ReadyState.UNSENT;
+                this.status = 0;
+                this.statusText = '';
+                this.responseType = '';
+                this.timeout = 0;
+                this.withCredentials = false;
+                this.overrideMimeType = function (mime) {
+                    _mime = mime;
+                };
+                this.abort = function () {
+                    _xdr.abort();
+                };
+                this.setRequestHeader = function (name, value) {
+                    //TODO MATHIEU
+                };
+                this.open = function (method, url, async, uname, pswd) {
+                    //TODO MATHIEU
+                    if (this.timeout) {
+                        _xdr.timeout = this.timeout;
+                    }
+                    _setState(ReadyState.OPENED);
+                };
+                this.send = function (data) {
+                    //TODO MATHIEU
+                };
+                this.getAllResponseHeaders = function () {
+                    //TODO MATHIEU
+                };
+                this.getResponseHeader = function (name) {
+                    //TODO MATHIEU
                 }
-                self.responseHeaders = {};
-                done(ReadyState.DONE, 200);
             };
-            this.readyState = ReadyState.UNSENT;
-        };
-        XDomainRequestAdapter.prototype = {
-            setRequestHeader:function (name, value) {
-                //TODO MATHIEU
-            },
-            abort:function () {
-                this._xdr.abort();
-            },
-            open:function (method, url, async, uname, pswd) {
-                //TODO MATHIEU
-                this.readyState = ReadyState.OPENED;
-            },
-            send:function (data) {
-                //TODO MATHIEU
-            },
-            getAllResponseHeaders:function () {
-                //TODO MATHIEU
-            },
-            getResponseHeader:function (name) {
-                //TODO MATHIEU
-            }
-        };
 
-        $.ajaxSettings.xhr = function () {
+        /*$.ajaxSettings.xhr = function () {
             var target = parseUrl(this.url).domain;
             if (target === "" || target === domain) {
                 return oldxhr.call($.ajaxSettings)
@@ -146,13 +172,6 @@
                 try {
                     return new XDomainRequestAdapter();
 
-
-                    xdr.setRequestHeader = function () {
-
-                    };
-                    if (!xdr.getAllResponseHeaders) {
-                        xdr.getAllResponseHeaders = $.noop;
-                    }
                     if (sessionCookie || cookies) {
                         var open = xdr.open;
                         xdr.open = function (method, url) {
@@ -171,29 +190,11 @@
                             return open.apply(this, args);
                         };
                     }
-                    xdr.onprogress = function () {
-                    };
-                    xdr.ontimeout = function () {
-                    };
-                    xdr.onload = function () {
-                        xdr.readyState = 4;
-                        xdr.status = 200;
-                        if (typeof xdr.onreadystatechange === 'function') {
-                            xdr.onreadystatechange.call(xdr, null, false);
-                        }
-                    };
-                    xdr.onerror = xdr.ontimeout = function () {
-                        xdr.readyState = 4;
-                        xdr.status = 500;
-                        if (typeof xdr.onreadystatechange === 'function') {
-                            xdr.onreadystatechange.call(xdr, null, false);
-                        }
-                    };
-                    return xdr;
+
                 } catch (e) {
                 }
             }
-        };
+        };*/
 
     }
 })(jQuery);
