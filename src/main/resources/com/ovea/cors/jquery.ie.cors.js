@@ -35,7 +35,8 @@
 
     var ns = '__jquery_xdomain__',
         sc = 'XDR_SESSION_COOKIE_NAME',
-        cks = 'XDR_COOKIE_HEADERS';
+        cks = 'XDR_COOKIE_HEADERS',
+        dbg = 'XDR_DEBUG';
 
     if ($.browser.msie && 'XDomainRequest' in window && !(ns in $)) {
 
@@ -47,7 +48,8 @@
             oldxhr = $.ajaxSettings.xhr,
             sessionCookie = sc in window ? window[sc] : "jsessionid",
             cookies = cks in window ? window[cks] : [],
-            ReadyState = {UNSENT:0, OPENED:1, LOADING:3, DONE:4};
+            ReadyState = {UNSENT:0, OPENED:1, LOADING:3, DONE:4},
+            debug = window[dbg];
 
         function forEachCookie(names, fn) {
             if (typeof names == 'string') {
@@ -112,6 +114,9 @@
                         }
                     },
                     _done = function (state, code) {
+                        if (debug) {
+                            console.log('[XDR] request end with status and code:', status, code);
+                        }
                         self.status = code;
                         if (!self.responseType) {
                             _mime = _mime || _xdr.contentType;
@@ -161,6 +166,9 @@
                 this.setRequestHeader = function () {
                 };
                 this.open = function (method, url) {
+                    if (debug) {
+                        console.log('[XDR] open', url);
+                    }
                     if (this.timeout) {
                         _xdr.timeout = this.timeout;
                     }
@@ -168,6 +176,9 @@
                         var q = url.indexOf('?'),
                             addParam = function (name, value) {
                                 url += (q == -1 ? '?' : '&') + name + '=' + value;
+                                if (debug) {
+                                    console.log('[XDR] added parameter', url);
+                                }
                             };
                         forEachCookie(sessionCookie, function (name, value) {
                             if (q == -1) {
@@ -176,14 +187,21 @@
                                 url = url.substring(0, q) + ';' + name + '=' + value + url.substring(q);
                                 q = url.indexOf('?');
                             }
+                            if (debug) {
+                                console.log('[XDR] added cookie', url);
+                            }
                         });
                         addParam('_xd', 'true');
                         forEachCookie(cookies, addParam);
                     }
+                    _xdr.open(method, url);
                     _setState(ReadyState.OPENED);
                 };
                 this.send = function (data) {
-                    return _xdr.send(data);
+                    if (debug) {
+                        console.log('[XDR] send');
+                    }
+                    _xdr.send(data);
                 };
                 this.getAllResponseHeaders = function () {
                     return '';
