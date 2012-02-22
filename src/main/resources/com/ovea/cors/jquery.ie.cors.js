@@ -41,11 +41,32 @@
 
         $[ns] = $.support.cors = true;
 
+        var urlMatcher = /^(((([^:\/#\?]+:)?(?:\/\/((?:(([^:@\/#\?]+)(?:\:([^:@\/#\?]+))?)@)?(([^:\/#\?]+)(?:\:([0-9]+))?))?)?)?((\/?(?:[^\/\?#]+\/+)*)([^\?#]*)))?(\?[^#]+)?)(#.*)?/,
+            markMatcher = /.*(~(\d+)~(\d+)~)/gm,
+            expireMatcher = /;\s*Expires\s*=\s*.+/g,
+            oldxhr = $.ajaxSettings.xhr,
+            sessionCookie = sc in window ? window[sc] : "jsessionid",
+            cookies = cks in window ? window[cks] : [],
+            ReadyState = {UNSENT:0, OPENED:1, LOADING:3, DONE:4};
+
+        function forEachCookie(names, fn) {
+            if (typeof names == 'string') {
+                names = [names];
+            }
+            for (var i = 0; i < names.length; i++) {
+                var cookie = new RegExp('(?:^|; )' + names[i] + '=([^;]*)', 'i').exec(document.cookie);
+                cookie = cookie && cookie[1];
+                if (cookie) {
+                    fn.call(null, names[i], cookie);
+                }
+            }
+        }
+
         function parseUrl(url) {
             if ($.type(url) === "object") {
                 return url;
             }
-            var matches = /^(((([^:\/#\?]+:)?(?:\/\/((?:(([^:@\/#\?]+)(?:\:([^:@\/#\?]+))?)@)?(([^:\/#\?]+)(?:\:([0-9]+))?))?)?)?((\/?(?:[^\/\?#]+\/+)*)([^\?#]*)))?(\?[^#]+)?)(#.*)?/.exec(url);
+            var matches = urlMatcher.exec(url);
             return matches ? {
                 href:matches[0] || "",
                 hrefNoHash:matches[1] || "",
@@ -66,30 +87,23 @@
             } : {};
         }
 
-        function forEachCookie(names, fn) {
-            if (typeof names == 'string') {
-                names = [names];
-            }
-            for (var i = 0; i < names.length; i++) {
-                var cookie = new RegExp('(?:^|; )' + names[i] + '=([^;]*)', 'i').exec(document.cookie);
-                cookie = cookie && cookie[1];
-                if (cookie) {
-                    fn.call(null, names[i], cookie);
+        function parseCookies(header) {
+            var cookies = [], i = 0, start = 0, end;
+            do {
+                end = header.indexOf(',', start);
+                cookies[i] = (cookies[i] || '') + header.substring(start, end == -1 ? header.length : end);
+                start = end + 1;
+                if (!expireMatcher.test(cookies[i]) || cookies[i].indexOf(',') != -1) {
+                    i++;
                 }
-            }
+            } while (end > 0);
+            return cookies;
         }
 
-        var oldxhr = $.ajaxSettings.xhr,
-            sessionCookie = sc in window ? window[sc] : "jsessionid",
-            cookies = cks in window ? window[cks] : [],
-            domain = parseUrl(document.location.href).domain,
-            ReadyState = {UNSENT:0, OPENED:1, LOADING:3, DONE:4},
-            markMatcher = /(~(\d+)~(\d+)~).*/,
+        var domain = parseUrl(document.location.href).domain,
             XDomainRequestAdapter = function () {
                 var self = this,
-                    _xdr = this._xdr = new XDomainRequest(),
-                    _requestHeaders = {},
-                    _responseHeaders = {},
+                    _xdr = new XDomainRequest(),
                     _mime,
                     _setState = function (state) {
                         self.readyState = state;
@@ -117,15 +131,16 @@
                 };
                 _xdr.onload = function () {
                     // check if we are using a filter which modify the response
-                    var m, code = 200;
-                    if (_xdr.responseText.length >= 5 && (m = markMatcher.exec(_xdr.responseText.substr(0, 20)))) {
+                    var m, code = 200, rl = _xdr.responseText.length;
+                    if (rl >= 5 && (m = markMatcher.exec(_xdr.responseText.substr(rl - 20)))) {
                         var ml = m[1].length,
-                            hl = parseInt(m[2]),
-                            header = _xdr.responseText.substring(ml, ml + hl);
-                        //TODO MATHIEU - headers
-                        code = parseInt(m[3]);
+                            hl = parseInt(m[3]),
+                            cookies = parseCookies(_xdr.responseText.substr(rl - hl - ml, hl));
+                        code = parseInt(m[2]);
                         self.responseText = _xdr.responseText.substring(ml + hl);
-                        self.responseHeaders = {};
+                        for (var i = 0; i < cookies.length; i++) {
+                            document.cookie = cookies[i];
+                        }
                     } else {
                         self.responseText = _xdr.responseText;
                     }
@@ -143,58 +158,50 @@
                 this.abort = function () {
                     _xdr.abort();
                 };
-                this.setRequestHeader = function (name, value) {
-                    //TODO MATHIEU
+                this.setRequestHeader = function () {
                 };
-                this.open = function (method, url, async, uname, pswd) {
-                    //TODO MATHIEU
+                this.open = function (method, url) {
                     if (this.timeout) {
                         _xdr.timeout = this.timeout;
+                    }
+                    if (sessionCookie || cookies) {
+                        var q = url.indexOf('?');
+                        forEachCookie(sessionCookie, function (name, value) {
+                            if (q == -1) {
+                                url += ';' + name + '=' + value;
+                            } else {
+                                url = url.substring(0, q) + ';' + name + '=' + value + url.substring(q);
+                                q = url.indexOf('?');
+                            }
+                        });
+                        forEachCookie(cookies, function (name, value) {
+                            url += (q == -1 ? '?' : '&') + name + '=' + value;
+                        });
                     }
                     _setState(ReadyState.OPENED);
                 };
                 this.send = function (data) {
-                    //TODO MATHIEU
+                    return _xdr.send(data);
                 };
                 this.getAllResponseHeaders = function () {
-                    //TODO MATHIEU
+                    return '';
                 };
-                this.getResponseHeader = function (name) {
-                    //TODO MATHIEU
+                this.getResponseHeader = function () {
+                    return null;
                 }
             };
 
-        /*$.ajaxSettings.xhr = function () {
+        $.ajaxSettings.xhr = function () {
             var target = parseUrl(this.url).domain;
             if (target === "" || target === domain) {
                 return oldxhr.call($.ajaxSettings)
             } else {
                 try {
                     return new XDomainRequestAdapter();
-
-                    if (sessionCookie || cookies) {
-                        var open = xdr.open;
-                        xdr.open = function (method, url) {
-                            var args = arguments;
-                            forEachCookie(sessionCookie, function (name, value) {
-                                var q = args[1].indexOf('?');
-                                if (q == -1) {
-                                    args[1] += ';' + name + '=' + value;
-                                } else {
-                                    args[1] = args[1].substring(0, q) + ';' + name + '=' + value + args[1].substring(q);
-                                }
-                            });
-                            forEachCookie(cookies, function (name, value) {
-                                args[1] += (args[1].indexOf('?') == -1 ? '?' : '&') + name + '=' + value;
-                            });
-                            return open.apply(this, args);
-                        };
-                    }
-
                 } catch (e) {
                 }
             }
-        };*/
+        };
 
     }
 })(jQuery);
