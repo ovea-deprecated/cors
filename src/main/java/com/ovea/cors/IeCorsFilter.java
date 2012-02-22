@@ -16,10 +16,10 @@
 package com.ovea.cors;
 
 import javax.servlet.*;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
-import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.*;
 import java.io.IOException;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -44,19 +44,28 @@ public class IeCorsFilter implements Filter {
         HttpServletResponse res = (HttpServletResponse) servletResponse;
         String ua;
         if (Boolean.valueOf(req.getParameter("_xd")) && (ua = req.getHeader("User-Agent")) != null && ua.contains("MSIE")) {
+            final List<Cookie> cookies = new LinkedList<>();
             filterChain.doFilter(new HttpServletRequestWrapper(req) {
+                    @Override
+                    public String getHeader(String name) {
+                        return name.equalsIgnoreCase("Accept-Encoding") ? null : super.getHeader(name);
+                    }
+                }, new HttpServletResponseWrapper(res) {
                 @Override
-                public String getHeader(String name) {
-                    return name.equalsIgnoreCase("Accept-Encoding") ? null : super.getHeader(name);
+                public void addCookie(Cookie cookie) {
+                    super.addCookie(cookie);
+                    cookies.add(cookie);
                 }
-            }, res);
+            }
+            );
             String header = res.getHeader("Set-Cookie");
+            HttpSession session = req.getSession(false);
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.fine("Appending cookies to request " + req.getRequestURI() + ", header=" + header + ", cookies=" + cookies + ", sessionId=" + (session == null ? null : session.getId()));
+            }
             if (header != null) {
-                if (LOGGER.isLoggable(Level.FINE)) {
-                    LOGGER.fine("Appending cookies to request: " + req.getRequestURI());
-                }
-                StringBuilder cookies = new StringBuilder(header).append("~").append(res.getStatus()).append("~").append(header.length()).append("~");
-                res.getOutputStream().print(cookies.toString());
+                res.getOutputStream().write(new StringBuilder(header).append("~").append(res.getStatus()).append("~").append(header.length()).append("~").toString().getBytes());
+                res.flushBuffer();
             }
         } else {
             filterChain.doFilter(req, res);
