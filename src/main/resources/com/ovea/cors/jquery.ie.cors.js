@@ -144,6 +144,9 @@
                         code = parseInt(m[2]);
                         self.responseText = _xdr.responseText.substring(ml + hl);
                         for (var i = 0; i < cookies.length; i++) {
+                            if (debug) {
+                                console.log('[XDR] received cookie', cookies[i]);
+                            }
                             document.cookie = cookies[i];
                         }
                     } else {

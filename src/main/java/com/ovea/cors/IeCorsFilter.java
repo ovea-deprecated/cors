@@ -17,6 +17,7 @@ package com.ovea.cors;
 
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.logging.Level;
@@ -43,7 +44,12 @@ public class IeCorsFilter implements Filter {
         HttpServletResponse res = (HttpServletResponse) servletResponse;
         String ua;
         if (Boolean.valueOf(req.getParameter("_xd")) && (ua = req.getHeader("User-Agent")) != null && ua.contains("MSIE")) {
-            filterChain.doFilter(req, res);
+            filterChain.doFilter(new HttpServletRequestWrapper(req) {
+                @Override
+                public String getHeader(String name) {
+                    return name.equalsIgnoreCase("Accept-Encoding") ? null : super.getHeader(name);
+                }
+            }, res);
             String header = res.getHeader("Set-Cookie");
             if (header != null) {
                 if (LOGGER.isLoggable(Level.FINE)) {
