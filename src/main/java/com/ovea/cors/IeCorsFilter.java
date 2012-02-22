@@ -19,11 +19,16 @@ import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * @author Mathieu Carbou (mathieu.carbou@gmail.com)
  */
 public class IeCorsFilter implements Filter {
+
+    private static final Logger LOGGER = Logger.getLogger(IeCorsFilter.class.getName());
+
     @Override
     public void destroy() {
     }
@@ -41,6 +46,9 @@ public class IeCorsFilter implements Filter {
             filterChain.doFilter(req, res);
             String header = res.getHeader("Set-Cookie");
             if (header != null) {
+                if (LOGGER.isLoggable(Level.FINE)) {
+                    LOGGER.fine("Appending cookies to request: " + req.getRequestURI());
+                }
                 StringBuilder cookies = new StringBuilder(header).append("~").append(res.getStatus()).append("~").append(header.length()).append("~");
                 res.getOutputStream().print(cookies.toString());
             }
