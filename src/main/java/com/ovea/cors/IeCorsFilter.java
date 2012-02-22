@@ -37,7 +37,7 @@ public class IeCorsFilter implements Filter {
         HttpServletRequest req = (HttpServletRequest) servletRequest;
         HttpServletResponse res = (HttpServletResponse) servletResponse;
         String ua;
-        if (Boolean.valueOf(req.getParameter("cors")) && (ua = req.getHeader("User-Agent")) != null && ua.contains("MSIE")) {
+        if (Boolean.valueOf(req.getParameter("_xd")) && (ua = req.getHeader("User-Agent")) != null && ua.contains("MSIE")) {
             filterChain.doFilter(req, res);
             String header = res.getHeader("Set-Cookie");
             if (header != null) {

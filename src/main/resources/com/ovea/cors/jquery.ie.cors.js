@@ -165,7 +165,10 @@
                         _xdr.timeout = this.timeout;
                     }
                     if (sessionCookie || cookies) {
-                        var q = url.indexOf('?');
+                        var q = url.indexOf('?'),
+                            addParam = function (name, value) {
+                                url += (q == -1 ? '?' : '&') + name + '=' + value;
+                            };
                         forEachCookie(sessionCookie, function (name, value) {
                             if (q == -1) {
                                 url += ';' + name + '=' + value;
@@ -174,9 +177,8 @@
                                 q = url.indexOf('?');
                             }
                         });
-                        forEachCookie(cookies, function (name, value) {
-                            url += (q == -1 ? '?' : '&') + name + '=' + value;
-                        });
+                        addParam('_xd', 'true');
+                        forEachCookie(cookies, addParam);
                     }
                     _setState(ReadyState.OPENED);
                 };
