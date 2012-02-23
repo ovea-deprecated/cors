@@ -17,7 +17,9 @@ package com.ovea.cors;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Level;
@@ -45,6 +47,7 @@ public class IeCorsFilter implements Filter {
         String ua;
         if (Boolean.valueOf(req.getParameter("_xd")) && (ua = req.getHeader("User-Agent")) != null && ua.contains("MSIE")) {
             final List<Cookie> cookies = new LinkedList<>();
+            final ByteArrayOutputStream baos = new ByteArrayOutputStream();
             filterChain.doFilter(new HttpServletRequestWrapper(req) {
                     @Override
                     public String getHeader(String name) {
@@ -56,6 +59,21 @@ public class IeCorsFilter implements Filter {
                     super.addCookie(cookie);
                     cookies.add(cookie);
                 }
+
+                @Override
+                public ServletOutputStream getOutputStream() throws IOException {
+                    return new ServletOutputStream() {
+                        @Override
+                        public void write(int b) throws IOException {
+                            baos.write(b);
+                        }
+                    };
+                }
+
+                @Override
+                public PrintWriter getWriter() throws IOException {
+                    return new PrintWriter(baos, true);
+                }
             }
             );
             String header = res.getHeader("Set-Cookie");
@@ -64,9 +82,12 @@ public class IeCorsFilter implements Filter {
                 LOGGER.fine("Appending cookies to request " + req.getRequestURI() + ", header=" + header + ", cookies=" + cookies + ", sessionId=" + (session == null ? null : session.getId()));
             }
             if (header != null) {
-                res.getOutputStream().write(new StringBuilder(header).append("~").append(res.getStatus()).append("~").append(header.length()).append("~").toString().getBytes());
-                res.flushBuffer();
+                baos.write(new StringBuilder(header).append("~").append(res.getStatus()).append("~").append(header.length()).append("~").toString().getBytes());
+
             }
+            res.getOutputStream().write(baos.toByteArray());
+            res.setContentLength(baos.size());
+            res.flushBuffer();
         } else {
             filterChain.doFilter(req, res);
         }
