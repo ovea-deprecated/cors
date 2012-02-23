@@ -15,6 +15,8 @@
  */
 package com.ovea.cors;
 
+import org.eclipse.jetty.http.HttpFields;
+
 import javax.servlet.*;
 import javax.servlet.http.*;
 import java.io.ByteArrayOutputStream;
@@ -31,6 +33,7 @@ import java.util.logging.Logger;
 public class IeCorsFilter implements Filter {
 
     private static final Logger LOGGER = Logger.getLogger(IeCorsFilter.class.getName());
+    private static final String __01Jan1970_COOKIE = HttpFields.formatDate(0);
 
     @Override
     public void destroy() {
@@ -76,15 +79,33 @@ public class IeCorsFilter implements Filter {
                 }
             }
             );
-            String header = res.getHeader("Set-Cookie");
             HttpSession session = req.getSession(false);
+            StringBuilder header = new StringBuilder(res.getHeader("Set-Cookie") == null ? "" : res.getHeader("Set-Cookie"));
+            int p = header.indexOf(";HttpOnly");
+            if (p != -1) {
+                header.replace(p, p + 9, "");
+            }
+            for (Cookie cookie : cookies) {
+                header.append(header.length() == 0 ? "" : ", ").append(cookie.getName()).append("=").append(cookie.getValue());
+                if (cookie.getPath() != null && cookie.getPath().length() > 0) {
+                    header.append(";Path=").append(cookie.getPath());
+                }
+                if (cookie.getMaxAge() >= 0) {
+                    header.append(";Expires=");
+                    if (cookie.getMaxAge() == 0) {
+                        header.append(__01Jan1970_COOKIE);
+                    } else {
+                        HttpFields.formatCookieDate(header, System.currentTimeMillis() + 1000L * cookie.getMaxAge());
+                    }
+                }
+            }
             if (LOGGER.isLoggable(Level.FINE)) {
                 LOGGER.fine("Appending cookies to request " + req.getRequestURI() + ", header=" + header + ", cookies=" + cookies + ", sessionId=" + (session == null ? null : session.getId()));
             }
-            if (header != null) {
-                baos.write(new StringBuilder(header).append("~").append(res.getStatus()).append("~").append(header.length()).append("~").toString().getBytes());
+            p = header.length();
+            header.append("~").append(res.getStatus()).append("~").append(p).append("~");
+            baos.write(header.toString().getBytes());
 
-            }
             res.getOutputStream().write(baos.toByteArray());
             res.setContentLength(baos.size());
             res.flushBuffer();
