@@ -153,7 +153,7 @@
                             if (debug) {
                                 console.log('[XDR] installing cookie ' + cookies[i]);
                             }
-                            document.cookie = cookies[i];
+                            document.cookie = cookies[i] + ";Domain=" + document.domain;
                         }
                     } else {
                         self.responseText = _xdr.responseText;
