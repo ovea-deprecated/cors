@@ -19,6 +19,7 @@ import org.eclipse.jetty.http.HttpFields;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -26,6 +27,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.zip.GZIPInputStream;
 
 /**
  * @author Mathieu Carbou (mathieu.carbou@gmail.com)
@@ -50,7 +52,7 @@ public class IeCorsFilter implements Filter {
         String ua;
         if (Boolean.valueOf(req.getParameter("_xd")) && (ua = req.getHeader("User-Agent")) != null && ua.contains("MSIE")) {
             final List<Cookie> cookies = new LinkedList<>();
-            final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            final ByteArrayOutputStream output = new ByteArrayOutputStream();
             filterChain.doFilter(new HttpServletRequestWrapper(req) {
                     @Override
                     public String getHeader(String name) {
@@ -68,14 +70,14 @@ public class IeCorsFilter implements Filter {
                     return new ServletOutputStream() {
                         @Override
                         public void write(int b) throws IOException {
-                            baos.write(b);
+                            output.write(b);
                         }
                     };
                 }
 
                 @Override
                 public PrintWriter getWriter() throws IOException {
-                    return new PrintWriter(baos, true);
+                    return new PrintWriter(output, true);
                 }
             }
             );
@@ -86,16 +88,18 @@ public class IeCorsFilter implements Filter {
                 header.replace(p, p + 9, "");
             }
             for (Cookie cookie : cookies) {
-                header.append(header.length() == 0 ? "" : ", ").append(cookie.getName()).append("=").append(cookie.getValue());
-                if (cookie.getPath() != null && cookie.getPath().length() > 0) {
-                    header.append(";Path=").append(cookie.getPath());
-                }
-                if (cookie.getMaxAge() >= 0) {
-                    header.append(";Expires=");
-                    if (cookie.getMaxAge() == 0) {
-                        header.append(__01Jan1970_COOKIE);
-                    } else {
-                        HttpFields.formatCookieDate(header, System.currentTimeMillis() + 1000L * cookie.getMaxAge());
+                if (header.indexOf(cookie.getName() + "=") == -1) {
+                    header.append(header.length() == 0 ? "" : ", ").append(cookie.getName()).append("=").append(cookie.getValue());
+                    if (cookie.getPath() != null && cookie.getPath().length() > 0) {
+                        header.append(";Path=").append(cookie.getPath());
+                    }
+                    if (cookie.getMaxAge() >= 0) {
+                        header.append(";Expires=");
+                        if (cookie.getMaxAge() == 0) {
+                            header.append(__01Jan1970_COOKIE);
+                        } else {
+                            HttpFields.formatCookieDate(header, System.currentTimeMillis() + 1000L * cookie.getMaxAge());
+                        }
                     }
                 }
             }
@@ -104,10 +108,26 @@ public class IeCorsFilter implements Filter {
             }
             p = header.length();
             header.append("~").append(res.getStatus()).append("~").append(p).append("~");
-            baos.write(header.toString().getBytes());
-
-            res.getOutputStream().write(baos.toByteArray());
-            res.setContentLength(baos.size());
+            p = header.length();
+            if ("gzip".equals(res.getHeader("Content-Encoding"))) {
+                if (LOGGER.isLoggable(Level.FINE)) {
+                    LOGGER.fine("Uncompressing GZIP response...");
+                }
+                res.setHeader("Content-Encoding", null);
+                ByteArrayOutputStream uncompressed = new ByteArrayOutputStream();
+                GZIPInputStream gzipStream = new GZIPInputStream(new ByteArrayInputStream(output.toByteArray()));
+                int c;
+                byte[] buffer = new byte[8096];
+                while ((c = gzipStream.read(buffer)) != -1) {
+                    uncompressed.write(buffer, 0, c);
+                }
+                res.setContentLength(p + uncompressed.size());
+                uncompressed.writeTo(res.getOutputStream());
+            } else {
+                res.setContentLength(p + output.size());
+                output.writeTo(res.getOutputStream());
+            }
+            res.getOutputStream().write(header.toString().getBytes());
             res.flushBuffer();
         } else {
             filterChain.doFilter(req, res);

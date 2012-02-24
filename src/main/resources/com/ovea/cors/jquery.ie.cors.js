@@ -90,6 +90,9 @@
         }
 
         function parseCookies(header) {
+            if (debug) {
+                console.log('[XDR] parsing cookies for header ' + header);
+            }
             var cookies = [], i = 0, start = 0, end;
             do {
                 end = header.indexOf(',', start);
@@ -115,14 +118,14 @@
                     },
                     _done = function (state, code) {
                         if (debug) {
-                            console.log('[XDR] request end with state, code and data:', state, code, self.responseText);
+                            console.log('[XDR] request end with state ' + state + ' and code ' + code + ' and data length ' + self.responseText.length);
                         }
                         self.status = code;
                         if (!self.responseType) {
                             _mime = _mime || _xdr.contentType;
                             self.responseType = _mime && _mime.substr(0, 16).toLowerCase() === 'application/json' ? 'json' : 'text';
                         }
-                        self.response = self.responseType === 'json' && self.responseText ? JSON.parse(self.responseText) : self.responseText;
+                        self.response = self.responseText;
                         _setState(state);
                     };
                 _xdr.onprogress = function () {
@@ -138,14 +141,17 @@
                     // check if we are using a filter which modify the response
                     var m, code = 200, rl = _xdr.responseText.length;
                     if (rl >= 5 && (m = markMatcher.exec(_xdr.responseText.substr(rl - 20)))) {
-                        var ml = m[1].length,
-                            hl = parseInt(m[3]),
-                            cookies = parseCookies(_xdr.responseText.substr(rl - hl - ml, hl));
+                        var hl = parseInt(m[3]),
+                            hPos = rl - hl - m[1].length,
+                            cookies = parseCookies(_xdr.responseText.substr(hPos, hl));
                         code = parseInt(m[2]);
-                        self.responseText = _xdr.responseText.substring(ml + hl);
+                        self.responseText = _xdr.responseText.substring(0, hPos);
+                        if (debug) {
+                            console.log('[XDR] parsed data:\n' + self.responseText);
+                        }
                         for (var i = 0; i < cookies.length; i++) {
                             if (debug) {
-                                console.log('[XDR] received cookie', cookies[i]);
+                                console.log('[XDR] installing cookie ' + cookies[i]);
                             }
                             document.cookie = cookies[i];
                         }
@@ -170,7 +176,7 @@
                 };
                 this.open = function (method, url) {
                     if (debug) {
-                        console.log('[XDR] open', url);
+                        console.log('[XDR] opening ' + url);
                     }
                     if (this.timeout) {
                         _xdr.timeout = this.timeout;
@@ -180,7 +186,7 @@
                             addParam = function (name, value) {
                                 url += (q == -1 ? '?' : '&') + name + '=' + value;
                                 if (debug) {
-                                    console.log('[XDR] added parameter', url);
+                                    console.log('[XDR] added parameter ' + url);
                                 }
                             };
                         forEachCookie(sessionCookie, function (name, value) {
@@ -191,7 +197,7 @@
                                 q = url.indexOf('?');
                             }
                             if (debug) {
-                                console.log('[XDR] added cookie', url);
+                                console.log('[XDR] added cookie ' + url);
                             }
                         });
                         addParam('_xd', 'true');
