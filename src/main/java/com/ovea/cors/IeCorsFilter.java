@@ -61,8 +61,8 @@ public class IeCorsFilter implements Filter {
                 }, new HttpServletResponseWrapper(res) {
                 @Override
                 public void addCookie(Cookie cookie) {
-                    super.addCookie(cookie);
                     cookies.add(cookie);
+                    super.addCookie(cookie);
                 }
 
                 @Override
