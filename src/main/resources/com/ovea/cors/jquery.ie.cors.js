@@ -123,9 +123,24 @@
                         self.status = code;
                         if (!self.responseType) {
                             _mime = _mime || _xdr.contentType;
-                            self.responseType = _mime && _mime.substr(0, 16).toLowerCase() === 'application/json' ? 'json' : 'text';
+                            if (_mime.match(/\/json/)) {
+                                self.responseType = 'json';
+                                self.response = self.responseText;
+                            } else if (_mime.match(/\/xml/)) {
+                                self.responseType = 'document';
+                                var dom = new ActiveXObject('Microsoft.XMLDOM');
+                                dom.async = false;
+                                dom.loadXML(self.responseText);
+                                self.responseXML = self.response = dom;
+                                if ($(dom).children('error').length != 0) {
+                                    var $error = $(dom).find('error');
+                                    self.status = parseInt($error.attr('response_code'));
+                                }
+                            } else {
+                                self.responseType = 'text';
+                                self.response = self.responseText;
+                            }
                         }
-                        self.response = self.responseText;
                         _setState(state);
                     };
                 _xdr.onprogress = function () {
@@ -184,7 +199,7 @@
                     if (sessionCookie || cookies) {
                         var q = url.indexOf('?'),
                             addParam = function (name, value) {
-                                url += (q == -1 ? '?' : '&') + name + '=' + value;
+                                url += (q == -1 ? '?' : '&') + name + '=' + encodeURIComponent(value);
                                 if (debug) {
                                     console.log('[XDR] added parameter ' + url);
                                 }
