@@ -162,6 +162,7 @@ public final class IeCorsFilter implements Filter {
             if (len > 0) {
                 res.getOutputStream().write(header.toString().getBytes());
             }
+            res.setStatus(HttpServletResponse.SC_OK);
             res.flushBuffer();
         } else
 
