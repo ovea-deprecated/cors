@@ -118,7 +118,7 @@
                     },
                     _done = function (state, code) {
                         if (debug) {
-                            console.log('[XDR] request end with state ' + state + ' and code ' + code + ' and data length ' + self.responseText.length);
+                            console.log('[XDR] request end with state ' + state + ' and code ' + code + ' and data length ' + (self.responseText || '').length);
                         }
                         self.status = code;
                         if (!self.responseType) {

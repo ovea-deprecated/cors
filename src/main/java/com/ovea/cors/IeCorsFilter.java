@@ -61,6 +61,9 @@ public class IeCorsFilter implements Filter {
                 }, new HttpServletResponseWrapper(res) {
                 @Override
                 public void addCookie(Cookie cookie) {
+                    if (LOGGER.isLoggable(Level.FINE)) {
+                        LOGGER.fine("Adding cookie: " + cookie.getName());
+                    }
                     cookies.add(cookie);
                     super.addCookie(cookie);
                 }
@@ -78,6 +81,14 @@ public class IeCorsFilter implements Filter {
                 @Override
                 public PrintWriter getWriter() throws IOException {
                     return new PrintWriter(output, true);
+                }
+
+                @Override
+                public void addHeader(String name, String value) {
+                    if (LOGGER.isLoggable(Level.FINE)) {
+                        LOGGER.fine("Adding header: " + name + "=" + value);
+                    }
+                    super.addHeader(name, value);
                 }
             }
             );
