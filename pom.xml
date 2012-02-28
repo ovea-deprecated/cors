@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>ovea-cors</artifactId>
-    <version>1.0.b6-SNAPSHOT</version>
+    <version>1.0.ga</version>
 
     <packaging>jar</packaging>
 
