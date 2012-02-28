@@ -22,6 +22,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.GZIPInputStream;
@@ -63,6 +64,7 @@ public final class IeCorsFilter implements Filter {
             // intercepts calls which set cookies
             final List<String> headers = new LinkedList<>();
             final ByteArrayOutputStream output = new ByteArrayOutputStream();
+            final AtomicInteger status = new AtomicInteger(200);
             filterChain.doFilter(new HttpServletRequestWrapper(req) {
                     @Override
                     public String getHeader(String name) {
@@ -115,6 +117,17 @@ public final class IeCorsFilter implements Filter {
                 public void sendError(int sc) throws IOException {
                     setStatus(sc);
                 }
+
+                @Override
+                public void setStatus(int sc) {
+                    status.set(sc);
+                }
+
+                @SuppressWarnings("deprecation")
+                @Override
+                public void setStatus(int sc, String sm) {
+                    status.set(sc);
+                }
             }
             );
 
@@ -132,16 +145,13 @@ public final class IeCorsFilter implements Filter {
 
             // prepare header
             int len = header.length();
-            if (len > 0) {
-                header.append("~").append(res.getStatus()).append("~").append(len).append("~");
-                len = header.length();
-            }
+            header.append("~").append(status.get()).append("~").append(len).append("~");
 
             if (LOGGER.isLoggable(Level.FINE)) {
                 LOGGER.fine("[" + req.getRequestURI() + "] Appending header: " + header);
             }
 
-            if (len > 0 && "gzip".equals(res.getHeader("Content-Encoding"))) {
+            if ("gzip".equals(res.getHeader("Content-Encoding"))) {
                 if (LOGGER.isLoggable(Level.FINE)) {
                     LOGGER.fine("[" + req.getRequestURI() + "] Uncompressing GZIP response...");
                 }
@@ -159,14 +169,10 @@ public final class IeCorsFilter implements Filter {
                 res.setContentLength(header.length() + output.size());
                 output.writeTo(res.getOutputStream());
             }
-            if (len > 0) {
-                res.getOutputStream().write(header.toString().getBytes());
-            }
+            res.getOutputStream().write(header.toString().getBytes());
             res.setStatus(HttpServletResponse.SC_OK);
             res.flushBuffer();
-        } else
-
-        {
+        } else {
             filterChain.doFilter(req, res);
         }
     }

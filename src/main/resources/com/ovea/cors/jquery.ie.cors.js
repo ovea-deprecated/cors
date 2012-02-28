@@ -93,6 +93,9 @@
             if (debug) {
                 console.log('[XDR] parsing cookies for header ' + header);
             }
+            if (header.length == 0) {
+                return [];
+            }
             var cookies = [], i = 0, start = 0, end;
             do {
                 end = header.indexOf(',', start);
@@ -154,8 +157,13 @@
                 };
                 _xdr.onload = function () {
                     // check if we are using a filter which modify the response
-                    var m, code = 200, rl = _xdr.responseText.length;
-                    if (rl >= 5 && (m = markMatcher.exec(_xdr.responseText.substr(rl - 20)))) {
+                    if (debug) {
+                        console.log('[XDR] raw data:\n' + _xdr.responseText);
+                    }
+                    var m = markMatcher.exec(_xdr.responseText.substr(rl - 20)),
+                        code = 200,
+                        rl = _xdr.responseText.length;
+                    if (rl >= 5 && m) {
                         var hl = parseInt(m[3]),
                             hPos = rl - hl - m[1].length,
                             cookies = parseCookies(_xdr.responseText.substr(hPos, hl));
