@@ -157,18 +157,22 @@
                 };
                 _xdr.onload = function () {
                     // check if we are using a filter which modify the response
+                    var d = _xdr.responseText;
                     if (debug) {
-                        console.log('[XDR] raw data:\n' + _xdr.responseText);
+                        console.log('[XDR] raw data:\n' + d);
                     }
-                    var m = markMatcher.exec(_xdr.responseText.substr(rl - 20)),
+                    var m = markMatcher.exec(d.substring(rl - 20)),
                         code = 200,
-                        rl = _xdr.responseText.length;
+                        rl = d.length;
+                    if (debug) {
+                        console.log('[XDR] matching "' + d.substring(rl - 20) + '" 0=' + m[0] + ', 1=' + m[1] + ', 2=' + m[2] + ', 3=' + m[3] + ', resp-len=' + rl);
+                    }
                     if (rl >= 5 && m) {
                         var hl = parseInt(m[3]),
                             hPos = rl - hl - m[1].length,
-                            cookies = parseCookies(_xdr.responseText.substr(hPos, hl));
+                            cookies = parseCookies(d.substr(hPos, hl));
                         code = parseInt(m[2]);
-                        self.responseText = _xdr.responseText.substring(0, hPos);
+                        self.responseText = d.substring(0, hPos);
                         if (debug) {
                             console.log('[XDR] parsed data:\n' + self.responseText);
                         }
@@ -179,7 +183,7 @@
                             document.cookie = cookies[i] + ";Domain=" + document.domain;
                         }
                     } else {
-                        self.responseText = _xdr.responseText;
+                        self.responseText = d;
                     }
                     _done(ReadyState.DONE, code);
                 };
