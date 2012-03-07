@@ -48,7 +48,7 @@
             sessionCookie = sc in window ? window[sc] : "jsessionid",
             cookies = cks in window ? window[cks] : [],
             ReadyState = {UNSENT:0, OPENED:1, LOADING:3, DONE:4},
-            debug = window[dbg];
+            debug = window[dbg] && 'console' in window;
 
         function forEachCookie(names, fn) {
             if (typeof names == 'string') {
