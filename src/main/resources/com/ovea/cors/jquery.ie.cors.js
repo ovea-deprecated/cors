@@ -43,7 +43,6 @@
         $[ns] = $.support.cors = true;
 
         var urlMatcher = /^(((([^:\/#\?]+:)?(?:\/\/((?:(([^:@\/#\?]+)(?:\:([^:@\/#\?]+))?)@)?(([^:\/#\?]+)(?:\:([0-9]+))?))?)?)?((\/?(?:[^\/\?#]+\/+)*)([^\?#]*)))?(\?[^#]+)?)(#.*)?/,
-            markMatcher = /.*(~(\d+)~(\d+)~)/gm,
             expireMatcher = /;\s*Expires\s*=\s*.+/g,
             oldxhr = $.ajaxSettings.xhr,
             sessionCookie = sc in window ? window[sc] : "jsessionid",
@@ -61,6 +60,20 @@
                 if (cookie) {
                     fn.call(null, names[i], cookie);
                 }
+            }
+        }
+
+        function parseResponse(str) {
+            // resp[0] = status
+            // resp[1] = data
+            // resp[2] = header
+            var m = /[\s\S]*(~(\d+)~(\d+)~)/gm.exec(str);
+            if (!m) {
+                return [200, str, ''];
+            } else {
+                var hl = parseInt(m[3]),
+                    hPos = str.length - hl - m[1].length;
+                return [parseInt(m[2]), str.substring(0, hPos), str.substr(hPos, hl)];
             }
         }
 
@@ -96,16 +109,16 @@
             if (header.length == 0) {
                 return [];
             }
-            var cookies = [], i = 0, start = 0, end;
+            var cooks = [], i = 0, start = 0, end;
             do {
                 end = header.indexOf(',', start);
-                cookies[i] = (cookies[i] || '') + header.substring(start, end == -1 ? header.length : end);
+                cooks[i] = (cooks[i] || '') + header.substring(start, end == -1 ? header.length : end);
                 start = end + 1;
-                if (!expireMatcher.test(cookies[i]) || cookies[i].indexOf(',') != -1) {
+                if (!expireMatcher.test(cooks[i]) || cooks[i].indexOf(',') != -1) {
                     i++;
                 }
             } while (end > 0);
-            return cookies;
+            return cooks;
         }
 
         var domain = parseUrl(document.location.href).domain,
@@ -121,7 +134,7 @@
                     },
                     _done = function (state, code) {
                         if (debug) {
-                            console.log('[XDR] request end with state ' + state + ' and code ' + code + ' and data length ' + (self.responseText || '').length);
+                            console.log('[XDR] request end with state ' + state + ' and code ' + code + ' and data length ' + self.responseText.length);
                         }
                         self.status = code;
                         if (!self.responseType) {
@@ -157,35 +170,20 @@
                 };
                 _xdr.onload = function () {
                     // check if we are using a filter which modify the response
-                    var d = _xdr.responseText;
+                    var d = _xdr.responseText || '',
+                        resp = parseResponse(d),
+                        cooks = parseCookies(resp[2]);
+                    self.responseText = resp[1];
                     if (debug) {
-                        console.log('[XDR] raw data:\n' + d);
+                        console.log('[XDR] raw data:\n' + d + '\n parsed response: status=' + resp[0] + ', header=' + resp[2] + ', data=\n' + resp[1]);
                     }
-                    var m = markMatcher.exec(d.substring(rl - 20)),
-                        code = 200,
-                        rl = d.length;
-                    if (debug) {
-                        console.log('[XDR] matching "' + d.substring(rl - 20) + '" 0=' + m[0] + ', 1=' + m[1] + ', 2=' + m[2] + ', 3=' + m[3] + ', resp-len=' + rl);
-                    }
-                    if (rl >= 5 && m) {
-                        var hl = parseInt(m[3]),
-                            hPos = rl - hl - m[1].length,
-                            cookies = parseCookies(d.substr(hPos, hl));
-                        code = parseInt(m[2]);
-                        self.responseText = d.substring(0, hPos);
+                    for (var i = 0; i < cooks.length; i++) {
                         if (debug) {
-                            console.log('[XDR] parsed data:\n' + self.responseText);
+                            console.log('[XDR] installing cookie ' + cooks[i]);
                         }
-                        for (var i = 0; i < cookies.length; i++) {
-                            if (debug) {
-                                console.log('[XDR] installing cookie ' + cookies[i]);
-                            }
-                            document.cookie = cookies[i] + ";Domain=" + document.domain;
-                        }
-                    } else {
-                        self.responseText = d;
+                        document.cookie = cooks[i] + ";Domain=" + document.domain;
                     }
-                    _done(ReadyState.DONE, code);
+                    _done(ReadyState.DONE, resp[0]);
                 };
                 this.readyState = ReadyState.UNSENT;
                 this.status = 0;
@@ -260,4 +258,5 @@
         };
 
     }
-})(jQuery);
+})
+    (jQuery);

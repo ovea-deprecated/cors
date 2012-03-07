@@ -144,34 +144,50 @@ public final class IeCorsFilter implements Filter {
             }
 
             // prepare header
-            int len = header.length();
-            header.append("~").append(status.get()).append("~").append(len).append("~");
+            final int len = header.length();
+            final boolean needsHeader = len > 0 || status.get() != 200;
 
-            if (LOGGER.isLoggable(Level.FINE)) {
-                LOGGER.fine("[" + req.getRequestURI() + "] Appending header: " + header);
-            }
+            if (needsHeader) {
 
-            if ("gzip".equals(res.getHeader("Content-Encoding"))) {
+                header.append("~").append(status.get()).append("~").append(len).append("~");
+
                 if (LOGGER.isLoggable(Level.FINE)) {
-                    LOGGER.fine("[" + req.getRequestURI() + "] Uncompressing GZIP response...");
+                    LOGGER.fine("[" + req.getRequestURI() + "] Appending header: " + header);
                 }
-                res.setHeader("Content-Encoding", null);
-                ByteArrayOutputStream uncompressed = new ByteArrayOutputStream();
-                GZIPInputStream gzipStream = new GZIPInputStream(new ByteArrayInputStream(output.toByteArray()));
-                int c;
-                byte[] buffer = new byte[8096];
-                while ((c = gzipStream.read(buffer)) != -1) {
-                    uncompressed.write(buffer, 0, c);
+
+                if ("gzip".equals(res.getHeader("Content-Encoding"))) {
+                    if (LOGGER.isLoggable(Level.FINE)) {
+                        LOGGER.fine("[" + req.getRequestURI() + "] Uncompressing GZIP response...");
+                    }
+                    res.setHeader("Content-Encoding", null);
+                    ByteArrayOutputStream uncompressed = new ByteArrayOutputStream();
+                    GZIPInputStream gzipStream = new GZIPInputStream(new ByteArrayInputStream(output.toByteArray()));
+                    int c;
+                    byte[] buffer = new byte[8096];
+                    while ((c = gzipStream.read(buffer)) != -1) {
+                        uncompressed.write(buffer, 0, c);
+                    }
+                    res.setContentLength(header.length() + uncompressed.size());
+                    uncompressed.writeTo(res.getOutputStream());
+                } else {
+                    res.setContentLength(header.length() + output.size());
+                    output.writeTo(res.getOutputStream());
                 }
-                res.setContentLength(header.length() + uncompressed.size());
-                uncompressed.writeTo(res.getOutputStream());
+                res.getOutputStream().write(header.toString().getBytes());
+                res.setStatus(HttpServletResponse.SC_OK);
+                res.flushBuffer();
+
             } else {
-                res.setContentLength(header.length() + output.size());
+
+                if (LOGGER.isLoggable(Level.FINE)) {
+                    LOGGER.fine("[" + req.getRequestURI() + "] No header to append, status=200");
+                }
+
+                res.setContentLength(output.size());
                 output.writeTo(res.getOutputStream());
+                res.setStatus(HttpServletResponse.SC_OK);
+                res.flushBuffer();
             }
-            res.getOutputStream().write(header.toString().getBytes());
-            res.setStatus(HttpServletResponse.SC_OK);
-            res.flushBuffer();
         } else {
             filterChain.doFilter(req, res);
         }
