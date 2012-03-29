@@ -203,9 +203,6 @@
                 this.setRequestHeader = function () {
                 };
                 this.open = function (method, url) {
-                    if (debug) {
-                        console.log('[XDR] opening ' + url);
-                    }
                     if (this.timeout) {
                         _xdr.timeout = this.timeout;
                     }
@@ -230,6 +227,9 @@
                         });
                         addParam('_xd', 'true');
                         forEachCookie(cookies, addParam);
+                    }
+                    if (debug) {
+                        console.log('[XDR] opening ' + url);
                     }
                     _xdr.open(method, url);
                     _setState(ReadyState.OPENED);
