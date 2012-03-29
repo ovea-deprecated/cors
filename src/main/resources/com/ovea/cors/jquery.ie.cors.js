@@ -210,19 +210,19 @@
                         _xdr.timeout = this.timeout;
                     }
                     if (sessionCookie || cookies) {
-                        var q = url.indexOf('?'),
-                            addParam = function (name, value) {
+                        var addParam = function (name, value) {
+                                var q = url.indexOf('?');
                                 url += (q == -1 ? '?' : '&') + name + '=' + encodeURIComponent(value);
                                 if (debug) {
                                     console.log('[XDR] added parameter ' + url);
                                 }
                             };
                         forEachCookie(sessionCookie, function (name, value) {
+                            var q = url.indexOf('?');
                             if (q == -1) {
                                 url += ';' + name + '=' + value;
                             } else {
                                 url = url.substring(0, q) + ';' + name + '=' + value + url.substring(q);
-                                q = url.indexOf('?');
                             }
                             if (debug) {
                                 console.log('[XDR] added cookie ' + url);
