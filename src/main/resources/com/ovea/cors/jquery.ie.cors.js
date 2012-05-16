@@ -43,7 +43,6 @@
         $[ns] = $.support.cors = true;
 
         var urlMatcher = /^(((([^:\/#\?]+:)?(?:\/\/((?:(([^:@\/#\?]+)(?:\:([^:@\/#\?]+))?)@)?(([^:\/#\?]+)(?:\:([0-9]+))?))?)?)?((\/?(?:[^\/\?#]+\/+)*)([^\?#]*)))?(\?[^#]+)?)(#.*)?/,
-            expireMatcher = /;\s*Expires\s*=\s*.+/g,
             oldxhr = $.ajaxSettings.xhr,
             sessionCookie = sc in window ? window[sc] : "jsessionid",
             cookies = cks in window ? window[cks] : [],
@@ -114,10 +113,16 @@
                 end = header.indexOf(',', start);
                 cooks[i] = (cooks[i] || '') + header.substring(start, end == -1 ? header.length : end);
                 start = end + 1;
-                if (!expireMatcher.test(cooks[i]) || cooks[i].indexOf(',') != -1) {
+                if (cooks[i].indexOf('Expires=') == -1 || cooks[i].indexOf(',') != -1) {
                     i++;
                 }
             } while (end > 0);
+            for (i = 0; i < cooks.length; i++) {
+                var d = cooks[i].indexOf('Domain=');
+                if (d != -1) {
+                    cooks[i] = cooks[i].substring(0, d) + cooks[i].substring(cooks[i].indexOf(';', d) + 1);
+                }
+            }
             return cooks;
         }
 
