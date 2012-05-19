@@ -38,7 +38,7 @@
         cks = 'XDR_COOKIE_HEADERS',
         dbg = 'XDR_DEBUG';
 
-    if ($.browser.msie && 'XDomainRequest' in window && !(ns in $)) {
+    if ($.browser.msie && 'XDomainRequest' in window && !(ns in $) && document.location.href.indexOf("file:///") == -1) {
 
         $[ns] = $.support.cors = true;
 
