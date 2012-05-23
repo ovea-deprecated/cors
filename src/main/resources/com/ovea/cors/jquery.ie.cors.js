@@ -30,6 +30,9 @@
  *
  * window.XDR_COOKIE_HEADERS = ['PHP_SESSION'];
  *
+ * To DEBUG:
+ *
+ * window.XDR_DEBUG = true;
  */
 (function ($) {
 
