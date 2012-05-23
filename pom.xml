@@ -44,18 +44,29 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-util</artifactId>
+            <version>8.1.2.v20120308</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>org.mortbay.jetty</groupId>
             <artifactId>servlet-api</artifactId>
             <version>3.0.20100224</version>
-            <optional>true</optional>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.ovea</groupId>
+            <artifactId>ovea-dynamic-markup</artifactId>
+            <version>3.1.ga</version>
         </dependency>
         <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-server</artifactId>
-            <version>8.1.0.RC5</version>
-            <optional>true</optional>
+            <groupId>org.testatoo.container</groupId>
+            <artifactId>testatoo-container-jetty</artifactId>
+            <version>1.1.ga</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
 </project>
-

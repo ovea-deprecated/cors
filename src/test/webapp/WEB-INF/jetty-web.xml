@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<Configure id="webappContext" class="org.eclipse.jetty.webapp.WebAppContext">
+    <Set name="virtualHosts">
+        <Array type="java.lang.String">
+            <Item>www.<SystemProperty name="domain" default="mycila.intra"/></Item>
+            <Item>service.<SystemProperty name="domain" default="mycila.intra"/></Item>
+        </Array>
+    </Set>
+    <Call name="setInitParameter">
+        <Arg>org.eclipse.jetty.servlet.SessionDomain</Arg>
+        <Arg>.<SystemProperty name="domain" default="mycila.intra"/></Arg>
+    </Call>
+    <Call name="setInitParameter">
+        <Arg>org.eclipse.jetty.servlet.SessionPath</Arg>
+        <Arg>/</Arg>
+    </Call>
+    <Call name="setInitParameter">
+        <Arg>org.eclipse.jetty.servlet.MaxAge</Arg>
+        <Arg>60</Arg>
+    </Call>
+    <Call name="setInitParameter">
+        <Arg>org.eclipse.jetty.servlet.SessionIdPathParameterName</Arg>
+        <Arg>id</Arg>
+    </Call>
+    <Call name="setInitParameter">
+        <Arg>org.eclipse.jetty.servlet.SessionCookie</Arg>
+        <Arg>id</Arg>
+    </Call>
+</Configure>

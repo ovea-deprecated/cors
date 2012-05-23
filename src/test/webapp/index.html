@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <title>CORS Test</title>
+    <script type="text/javascript" src="jquery-1.7.2.js"></script>
+    <script type="text/javascript">
+
+        document.domain = '@{System.getProperty("domain", "mycila.intra")}';
+
+        XDR_SESSION_COOKIE_NAME = 'id';
+        XDR_COOKIE_HEADERS = ['rmb', 'locale'];
+        XDR_DEBUG = true;
+
+        jQuery.ajaxSetup({
+            cache:false,
+            xhrFields:{
+                withCredentials:true
+            }
+        });
+
+        jQuery(function ($) {
+            $('#post,#get').click(function () {
+                $.ajax({
+                    type:$(this).text(),
+                    url:'http://service.mycila.intra/echo',
+                    data:{
+                        msg:$('#msg').val()
+                    },
+                    dataType:'json',
+                    success:function (d) {
+                        console.log(d);
+                        $('#response').append('<pre>' + d['val'] + '</pre>');
+                    }
+                });
+            });
+        });
+    </script>
+    <script type="text/javascript" src="file/com/ovea/cors/jquery.ie.cors.js"></script>
+</head>
+<body>
+<label for="msg">Message: </label><input id="msg" type="text" value="some text">
+<button id="post">POST</button>
+<button id="get">GET</button>
+<div id="response"></div>
+</body>
+</html>
