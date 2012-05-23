@@ -17,10 +17,7 @@ package com.ovea.cors;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -66,69 +63,107 @@ public final class IeCorsFilter implements Filter {
             final ByteArrayOutputStream output = new ByteArrayOutputStream();
             final AtomicInteger status = new AtomicInteger(200);
             filterChain.doFilter(new HttpServletRequestWrapper(req) {
-                    @Override
-                    public String getHeader(String name) {
-                        return name.equalsIgnoreCase("Accept-Encoding") ? null : super.getHeader(name);
-                    }
-                }, new HttpServletResponseWrapper(res) {
-                @Override
-                public void addCookie(Cookie cookie) {
-                    String header = buildHeader(cookie);
-                    if (LOGGER.isLoggable(Level.FINE)) {
-                        LOGGER.fine("[" + req.getRequestURI() + "] Adding header " + header + " from cookie " + cookie.getName());
-                    }
-                    super.addCookie(cookie);
-                    headers.add(header);
-                }
+                                     @Override
+                                     public String getHeader(String name) {
+                                         return name.equalsIgnoreCase("Accept-Encoding") ? null : super.getHeader(name);
+                                     }
+                                 }, new HttpServletResponseWrapper(res) {
+                                     @Override
+                                     public void addCookie(Cookie cookie) {
+                                         String header = buildHeader(cookie);
+                                         if (LOGGER.isLoggable(Level.FINE)) {
+                                             LOGGER.fine("[" + req.getRequestURI() + "] Adding header " + header + " from cookie " + cookie.getName());
+                                         }
+                                         super.addCookie(cookie);
+                                         headers.add(header);
+                                     }
 
-                @Override
-                public void addHeader(String name, String value) {
-                    if ("Set-Cookie".equalsIgnoreCase(name)) {
-                        String header = removeHttpOnly(value);
-                        if (LOGGER.isLoggable(Level.FINE)) {
-                            LOGGER.fine("[" + req.getRequestURI() + "] Adding header " + header + " from Set-Cookie header " + value);
-                        }
-                        headers.add(header);
-                    }
-                    super.addHeader(name, value);
-                }
+                                     @Override
+                                     public void addHeader(String name, String value) {
+                                         if ("Set-Cookie".equalsIgnoreCase(name)) {
+                                             String header = removeHttpOnly(value);
+                                             if (LOGGER.isLoggable(Level.FINE)) {
+                                                 LOGGER.fine("[" + req.getRequestURI() + "] Adding header " + header + " from Set-Cookie header " + value);
+                                             }
+                                             headers.add(header);
+                                         }
+                                         super.addHeader(name, value);
+                                     }
 
-                @Override
-                public ServletOutputStream getOutputStream() throws IOException {
-                    return new ServletOutputStream() {
-                        @Override
-                        public void write(int b) throws IOException {
-                            output.write(b);
-                        }
-                    };
-                }
+                                     @Override
+                                     public ServletOutputStream getOutputStream() throws IOException {
+                                         return new ServletOutputStream() {
+                                             @Override
+                                             public void write(int b) throws IOException {
+                                                 output.write(b);
+                                             }
 
-                @Override
-                public PrintWriter getWriter() throws IOException {
-                    return new PrintWriter(output, true);
-                }
+                                             @Override
+                                             public String toString() {
+                                                 return ServletOutputStream.class.getSimpleName() + "(" + req.getRequestURI() + ")";
+                                             }
+                                         };
+                                     }
 
-                @Override
-                public void sendError(int sc, String msg) throws IOException {
-                    setStatus(sc);
-                }
+                                     @Override
+                                     public PrintWriter getWriter() throws IOException {
+                                         return new PrintWriter(new OutputStreamWriter(new OutputStream() {
+                                             @Override
+                                             public void write(int b) throws IOException {
+                                                 output.write(b);
+                                             }
+                                         }), true) {
+                                             @Override
+                                             public String toString() {
+                                                 return PrintWriter.class.getSimpleName() + "(" + req.getRequestURI() + ")";
+                                             }
 
-                @Override
-                public void sendError(int sc) throws IOException {
-                    setStatus(sc);
-                }
+                                             @Override
+                                             public void write(int c) {
+                                                 super.write(c);
+                                                 flush();
+                                             }
 
-                @Override
-                public void setStatus(int sc) {
-                    status.set(sc);
-                }
+                                             @Override
+                                             public void write(char[] buf, int off, int len) {
+                                                 super.write(buf, off, len);
+                                                 flush();
+                                             }
 
-                @SuppressWarnings("deprecation")
-                @Override
-                public void setStatus(int sc, String sm) {
-                    status.set(sc);
-                }
-            }
+                                             @Override
+                                             public void write(String s, int off, int len) {
+                                                 super.write(s, off, len);
+                                                 flush();
+                                             }
+                                         };
+                                     }
+
+                                     @Override
+                                     public void sendError(int sc, String msg) throws IOException {
+                                         setStatus(sc);
+                                     }
+
+                                     @Override
+                                     public void sendError(int sc) throws IOException {
+                                         setStatus(sc);
+                                     }
+
+                                     @Override
+                                     public void setStatus(int sc) {
+                                         status.set(sc);
+                                     }
+
+                                     @SuppressWarnings("deprecation")
+                                     @Override
+                                     public void setStatus(int sc, String sm) {
+                                         status.set(sc);
+                                     }
+
+                                     @Override
+                                     public String toString() {
+                                         return HttpServletResponse.class.getSimpleName() + "(" + req.getRequestURI() + ")";
+                                     }
+                                 }
             );
 
             // build header line
