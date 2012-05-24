@@ -44,6 +44,9 @@
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>yuicompressor-maven-plugin</artifactId>
                 <version>1.3.0</version>
+                <configuration>
+                    <suffix>.min</suffix>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
