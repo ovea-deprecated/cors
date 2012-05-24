@@ -33,10 +33,19 @@
  * To DEBUG:
  *
  * window.XDR_DEBUG = true;
+ *
+ * To pass some headers:
+ *
+ * window.XDR_HEADERS = ['Content-Type', 'Accept']
+ *
  */
 (function ($) {
 
-    if ($.browser.msie && 'XDomainRequest' in window && !('__jquery_xdomain__' in $) && document.location.href.indexOf("file:///") == -1) {
+    if (!('__jquery_xdomain__' in $)
+        && $.browser.msie // must be IE
+        && 'XDomainRequest' in window // and support XDomainRequest (IE8+)
+        && !('XMLHttpRequest' in window && 'withCredentials' in new XMLHttpRequest()) // and must not support CORS (IE10+)
+        && document.location.href.indexOf("file:///") == -1) { // and must not be local
 
         $['__jquery_xdomain__'] = $.support.cors = true;
 
@@ -44,6 +53,7 @@
             oldxhr = $.ajaxSettings.xhr,
             sessionCookie = 'XDR_SESSION_COOKIE_NAME' in window ? window['XDR_SESSION_COOKIE_NAME'] : "jsessionid",
             cookies = 'XDR_COOKIE_HEADERS' in window ? window['XDR_COOKIE_HEADERS'] : [],
+            headers = 'XDR_HEADERS' in window ? window['XDR_HEADERS'] : ['Content-Type'],
             ReadyState = {UNSENT:0, OPENED:1, LOADING:3, DONE:4},
             debug = window['XDR_DEBUG'] && 'console' in window,
             XDomainRequestAdapter,
@@ -116,6 +126,8 @@
                 start = end + 1;
                 if (cooks[i].indexOf('Expires=') == -1 || cooks[i].indexOf(',') != -1) {
                     i++;
+                } else {
+                    cooks[i] += ',';
                 }
             } while (end > 0);
             for (i = 0; i < cooks.length; i++) {
@@ -132,6 +144,9 @@
             var self = this,
                 _xdr = new XDomainRequest(),
                 _mime,
+                _reqHeaders = [],
+                _method,
+                _url,
                 _setState = function (state) {
                     self.readyState = state;
                     if (typeof self.onreadystatechange === 'function') {
@@ -207,41 +222,49 @@
             this.abort = function () {
                 _xdr.abort();
             };
-            this.setRequestHeader = function () {
+            this.setRequestHeader = function (k, v) {
+                if($.inArray(k, headers) >= 0) {
+                    _reqHeaders.push({k:k, v:v});
+                }
             };
-            this.open = function (method, url) {
-                if (this.timeout) {
-                    _xdr.timeout = this.timeout;
-                }
-                if (sessionCookie || cookies) {
-                    var addParam = function (name, value) {
-                            var q = url.indexOf('?');
-                            url += (q == -1 ? '?' : '&') + name + '=' + encodeURIComponent(value);
-                            if (debug) {
-                                console.log('[XDR] added parameter ' + url);
-                            }
-                        };
-                    forEachCookie(sessionCookie, function (name, value) {
-                        var q = url.indexOf('?');
-                        if (q == -1) {
-                            url += ';' + name + '=' + value;
-                        } else {
-                            url = url.substring(0, q) + ';' + name + '=' + value + url.substring(q);
-                        }
-                        if (debug) {
-                            console.log('[XDR] added cookie ' + url);
-                        }
-                    });
-                    addParam('_xd', 'true');
-                    forEachCookie(cookies, addParam);
-                }
-                if (debug) {
-                    console.log('[XDR] opening ' + url);
-                }
-                _xdr.open(method, url);
+            this.open = function (m, u) {
+                _url = u;
+                _method = m;
                 _setState(ReadyState.OPENED);
             };
             this.send = function (data) {
+                if (this.timeout) {
+                    _xdr.timeout = this.timeout;
+                }
+                if (sessionCookie || cookies || _reqHeaders.length) {
+                    var h, addParam = function (name, value) {
+                        var q = _url.indexOf('?');
+                        _url += (q == -1 ? '?' : '&') + name + '=' + encodeURIComponent(value);
+                        if (debug) {
+                            console.log('[XDR] added parameter ' + name + "=" + value + " => " + _url);
+                        }
+                    };
+                    for (h = 0; h < _reqHeaders.length; h++) {
+                        addParam(_reqHeaders[h].k, _reqHeaders[h].v);
+                    }
+                    forEachCookie(sessionCookie, function (name, value) {
+                        var q = _url.indexOf('?');
+                        if (q == -1) {
+                            _url += ';' + name + '=' + value;
+                        } else {
+                            _url = _url.substring(0, q) + ';' + name + '=' + value + _url.substring(q);
+                        }
+                        if (debug) {
+                            console.log('[XDR] added cookie ' + _url);
+                        }
+                    });
+                    forEachCookie(cookies, addParam);
+                    addParam('_xdr', 'true');
+                }
+                if (debug) {
+                    console.log('[XDR] opening ' + _url);
+                }
+                _xdr.open(_method, _url);
                 if (debug) {
                     console.log('[XDR] send');
                 }

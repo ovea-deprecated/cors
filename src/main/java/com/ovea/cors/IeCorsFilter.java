@@ -41,6 +41,17 @@ public final class IeCorsFilter implements Filter {
     };
     private static final String __01Jan1970_COOKIE = __dateGenerator.get().formatDate(0);
 
+    private static boolean JETTY_SUPPORT;
+
+    static {
+        try {
+            IeCorsFilter.class.getClassLoader().loadClass("org.eclipse.jetty.server.AbstractHttpConnection");
+            JETTY_SUPPORT = true;
+        } catch (Throwable e) {
+            JETTY_SUPPORT = false;
+        }
+    }
+
 
     @Override
     public void destroy() {
@@ -55,9 +66,18 @@ public final class IeCorsFilter implements Filter {
         final HttpServletRequest req = (HttpServletRequest) servletRequest;
         final HttpServletResponse res = (HttpServletResponse) servletResponse;
         String ua;
-
-        if (Boolean.valueOf(req.getParameter("_xd")) && (ua = req.getHeader("User-Agent")) != null && ua.contains("MSIE")) {
-
+        String query = req.getQueryString();
+        query = query == null ? "" : query.toLowerCase();
+        if (query.contains("_xdr=true") && (ua = req.getHeader("User-Agent")) != null && ua.contains("MSIE")) {
+            // change content-type for a POST request to allow request parsing if some data is given
+            if ("POST".equals(req.getMethod().toUpperCase()) && req.getContentLength() > 0) {
+                if (JETTY_SUPPORT) {
+                    JettySupport.fixContentType(req);
+                }
+                if (req.getContentType() == null && LOGGER.isLoggable(Level.SEVERE)) {
+                    LOGGER.severe("No Content-Type received for IE CORS POST request " + req.getRequestURI());
+                }
+            }
             // intercepts calls which set cookies
             final List<String> headers = new LinkedList<>();
             final ByteArrayOutputStream output = new ByteArrayOutputStream();

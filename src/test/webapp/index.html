@@ -3,13 +3,16 @@
 <html>
 <head>
     <title>CORS Test</title>
+    <script type="text/javascript" src="json2.js"></script>
     <script type="text/javascript" src="jquery-1.7.2.js"></script>
+    <script type="text/javascript" src="jquery.json-2.2.js"></script>
     <script type="text/javascript">
 
         document.domain = '@{System.getProperty("domain", "mycila.intra")}';
 
         XDR_SESSION_COOKIE_NAME = 'id';
         XDR_COOKIE_HEADERS = ['rmb', 'locale'];
+        XDR_HEADERS = ['Content-Type'];
         XDR_DEBUG = true;
 
         jQuery.ajaxSetup({
@@ -20,19 +23,35 @@
         });
 
         jQuery(function ($) {
-            $('#post,#get').click(function () {
-                $.ajax({
-                    type:$(this).text(),
-                    url:'http://service.mycila.intra/echo',
-                    data:{
-                        msg:$('#msg').val()
-                    },
-                    dataType:'json',
-                    success:function (d) {
-                        console.log(d);
-                        $('#response').append('<pre>' + d['val'] + '</pre>');
-                    }
-                });
+            $('button').click(function () {
+                if ('GET' == $(this).attr('method')) {
+                    $.ajax({
+                        type:'GET',
+                        url:'http://service.mycila.intra/echo',
+                        data:{
+                            msg:$('#msg').val()
+                        },
+                        dataType:'json',
+                        success:function (d) {
+                            console.log(d);
+                            $('#response').append('<pre>' + d['val'] + '</pre>');
+                        }
+                    });
+                } else {
+                    var ct = $(this).attr('ct');
+                    $.ajax({
+                        type:'POST',
+                        url:'http://service.mycila.intra/echo',
+                        data:ct.indexOf('json') == -1 ? {msg:$('#msg').val()} : $.toJSON({msg:$('#msg').val()}),
+                        dataType:'json',
+                        contentType:ct,
+                        success:function (d) {
+                            console.log(d);
+                            $('#response').append('<pre>' + d['val'] + '</pre>');
+                        }
+                    });
+
+                }
             });
         });
     </script>
@@ -41,8 +60,9 @@
 </head>
 <body>
 <label for="msg">Message: </label><input id="msg" type="text" value="some text">
-<button id="post">POST</button>
-<button id="get">GET</button>
+<button method="GET">GET</button>
+<button method="POST" ct="application/x-www-form-urlencoded; charset=UTF-8">POST (form)</button>
+<button method="POST" ct="application/json; charset=UTF-8">POST (json)</button>
 <div id="response"></div>
 </body>
 </html>

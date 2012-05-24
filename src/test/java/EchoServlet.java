@@ -28,6 +28,7 @@ public final class EchoServlet extends HttpServlet {
     }
 
     private void write(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        req.getParameterMap();
         long time = System.currentTimeMillis();
         String body = IO.toString(req.getInputStream());
         Cookie[] cookies = req.getCookies();
@@ -38,6 +39,8 @@ public final class EchoServlet extends HttpServlet {
         System.out.println(" * uri=" + req.getRequestURI());
         System.out.println(" * query=" + req.getQueryString());
         System.out.println(" * locale=" + req.getLocale());
+        System.out.println(" * content-type=" + req.getContentType());
+        System.out.println(" * content-length=" + req.getContentLength());
         System.out.println(" * msg=" + req.getParameter("msg"));
         System.out.println(" * body=" + body);
         for (Cookie cookie : cookies) {
