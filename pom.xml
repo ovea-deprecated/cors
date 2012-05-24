@@ -36,6 +36,7 @@
                     <excludes>
                         <exclude>**/.gitignore</exclude>
                         <exclude>.idea/**</exclude>
+                        <exclude>src/test/webapp/*.js</exclude>
                     </excludes>
                 </configuration>
             </plugin>
