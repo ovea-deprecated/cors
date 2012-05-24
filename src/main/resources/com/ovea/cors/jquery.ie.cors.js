@@ -74,17 +74,29 @@
         }
 
         function parseResponse(str) {
-            // resp[0] = status
-            // resp[1] = data
-            // resp[2] = header
-            var hl, hPos, m = /[\s\S]*(~(\d+)~(\d+)~)/gm.exec(str);
-            if (!m) {
-                return [200, str, ''];
-            } else {
-                hl = parseInt(m[3]);
-                hPos = str.length - hl - m[1].length;
-                return [parseInt(m[2]), str.substring(0, hPos), str.substr(hPos, hl)];
+            // str === [data][header]~status~hlen~
+            // min: ~0~0~
+            if (str.length >= 5) {
+                // return[0] = status
+                // return[1] = data
+                // return[2] = header
+                var sub = str.substring(str.length <= 20 ? 0 : str.length - 20),
+                    i = sub.length - 1,
+                    end, hl, st;
+                if (sub.charAt(i) === '~') {
+                    for (end = i--; i >= 0 && sub.charAt(i) !== '~'; i--);
+                    hl = parseInt(sub.substring(i + 1, end));
+                    if (!isNaN(hl) && hl >= 0 && i >= 2 && sub.charAt(i) === '~') {
+                        for (end = i--; i >= 0 && sub.charAt(i) !== '~'; i--);
+                        st = parseInt(sub.substring(i + 1, end));
+                        if (!isNaN(st) && i >= 0 && sub.charAt(i) === '~') {
+                            end = str.length - hl - sub.length + i;
+                            return [st, str.substring(0, end), str.substr(end, hl)];
+                        }
+                    }
+                }
             }
+            return [200, str, ''];
         }
 
         function parseUrl(url) {
@@ -182,6 +194,10 @@
                         }
                     }
                     _setState(state);
+                    // clean memory
+                    _xdr = null;
+                    _reqHeaders = null;
+                    _url = null;
                 };
             _xdr.onprogress = function () {
                 _setState(ReadyState.LOADING);
@@ -195,12 +211,11 @@
             _xdr.onload = function () {
                 // check if we are using a filter which modify the response
                 var i,
-                    d = _xdr.responseText || '',
-                    resp = parseResponse(d),
+                    resp = parseResponse(_xdr.responseText || ''),
                     cooks = parseCookies(resp[2]);
-                self.responseText = resp[1];
+                self.responseText = resp[1] || '';
                 if (debug) {
-                    console.log('[XDR] raw data:\n' + d + '\n parsed response: status=' + resp[0] + ', header=' + resp[2] + ', data=\n' + resp[1]);
+                    console.log('[XDR] raw data:\n' + _xdr.responseText + '\n parsed response: status=' + resp[0] + ', header=' + resp[2] + ', data=\n' + resp[1]);
                 }
                 for (i = 0; i < cooks.length; i++) {
                     if (debug) {
@@ -209,6 +224,7 @@
                     document.cookie = cooks[i] + ";Domain=" + document.domain;
                 }
                 _done(ReadyState.DONE, resp[0]);
+                resp = null;
             };
             this.readyState = ReadyState.UNSENT;
             this.status = 0;
@@ -223,7 +239,7 @@
                 _xdr.abort();
             };
             this.setRequestHeader = function (k, v) {
-                if($.inArray(k, headers) >= 0) {
+                if ($.inArray(k, headers) >= 0) {
                     _reqHeaders.push({k:k, v:v});
                 }
             };

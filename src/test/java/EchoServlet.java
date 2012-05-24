@@ -1,10 +1,7 @@
 import org.eclipse.jetty.util.IO;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.*;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.Random;
@@ -28,7 +25,7 @@ public final class EchoServlet extends HttpServlet {
     }
 
     private void write(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        req.getParameterMap();
+        boolean data = req.getParameter("msg") != null && req.getParameter("msg").trim().length() > 0;
         long time = System.currentTimeMillis();
         String body = IO.toString(req.getInputStream());
         Cookie[] cookies = req.getCookies();
@@ -47,36 +44,43 @@ public final class EchoServlet extends HttpServlet {
             System.out.println(" * cookie [" + cookie.getName() + "]=" + cookie.getValue());
         }
 
-        String rmbrVal = UUID.randomUUID().toString();
-        body = "{\"val\":\"" + new BigInteger(1024, RANDOM).toString() + "\"}";
-
         System.out.println(time + " === SESSION ===");
-        req.getSession().setMaxInactiveInterval(60);
-        System.out.println(" * id=" + req.getSession().getId());
-        System.out.println(" * new=" + req.getSession().isNew());
-        System.out.println(" * rmbr=" + req.getSession().getAttribute("rmbr"));
-        req.getSession().setAttribute("rmbr", rmbrVal);
+        HttpSession session = req.getSession(false);
+        if (session != null) {
+            System.out.println(" * id=" + session.getId());
+            System.out.println(" * new=" + session.isNew());
+            System.out.println(" * rmbr=" + session.getAttribute("rmbr"));
+        }
 
-        System.out.println(time + " === RESPONSE ===");
-        System.out.println(" * rmbr=" + rmbrVal);
-        System.out.println(" * length=" + body.length());
+        if (data) {
+            String rmbrVal = UUID.randomUUID().toString();
+            body = "{\"val\":\"" + new BigInteger(1024, RANDOM).toString() + "\"}";
+
+            req.getSession().setAttribute("rmbr", rmbrVal);
+            req.getSession().setMaxInactiveInterval(60);
+
+            System.out.println(time + " === RESPONSE ===");
+            System.out.println(" * rmbr=" + rmbrVal);
+            System.out.println(" * length=" + body.length());
+
+            Cookie rmbr = new Cookie("rmbr", rmbrVal);
+            rmbr.setDomain("." + domain);
+            rmbr.setPath("/");
+            rmbr.setMaxAge(60);
+
+            Cookie locale = new Cookie("locale", req.getLocale().toString());
+            locale.setDomain("." + domain);
+            locale.setPath("/");
+            locale.setMaxAge(60);
+
+            resp.addCookie(rmbr);
+            resp.addCookie(locale);
+            resp.setContentType("application/json");
+            resp.setCharacterEncoding("UTF-8");
+            resp.setContentLength(body.length());
+            resp.getWriter().write(body);
+        }
+
         System.out.println("");
-
-        Cookie rmbr = new Cookie("rmbr", rmbrVal);
-        rmbr.setDomain("." + domain);
-        rmbr.setPath("/");
-        rmbr.setMaxAge(60);
-
-        Cookie locale = new Cookie("locale", req.getLocale().toString());
-        locale.setDomain("." + domain);
-        locale.setPath("/");
-        locale.setMaxAge(60);
-
-        resp.addCookie(rmbr);
-        resp.addCookie(locale);
-        resp.setContentType("application/json");
-        resp.setCharacterEncoding("UTF-8");
-        resp.setContentLength(body.length());
-        resp.getWriter().write(body);
     }
 }
