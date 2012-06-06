@@ -19,6 +19,7 @@ import javax.servlet.*;
 import javax.servlet.http.*;
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -68,20 +69,23 @@ public final class IeCorsFilter implements Filter {
         String ua;
         String query = req.getQueryString();
         query = query == null ? "" : query.toLowerCase();
-        if (query.contains("_xdr=true") && (ua = req.getHeader("User-Agent")) != null && ua.contains("MSIE")) {
+        if (query.contains("_xdr=") && (ua = req.getHeader("User-Agent")) != null && ua.contains("MSIE")) {
             // change content-type for a POST request to allow request parsing if some data is given
-            if ("POST".equals(req.getMethod().toUpperCase()) && req.getContentLength() > 0) {
+            if ("POST".equals(req.getMethod().toUpperCase())) {
                 if (JETTY_SUPPORT) {
                     JettySupport.fixContentType(req);
                 }
                 if (req.getContentType() == null && LOGGER.isLoggable(Level.SEVERE)) {
-                    LOGGER.severe("No Content-Type received for IE CORS POST request " + req.getRequestURI());
+                    LOGGER.severe("[XDR] No Content-Type received for IE CORS POST request " + req.getRequestURI());
                 }
             }
             // intercepts calls which set cookies
             final List<String> headers = new LinkedList<>();
             final ByteArrayOutputStream output = new ByteArrayOutputStream();
             final AtomicInteger status = new AtomicInteger(200);
+            final AtomicBoolean closed = new AtomicBoolean(false);
+            final long id = getId(req);
+
             filterChain.doFilter(new HttpServletRequestWrapper(req) {
                                      @Override
                                      public String getHeader(String name) {
@@ -92,7 +96,7 @@ public final class IeCorsFilter implements Filter {
                                      public void addCookie(Cookie cookie) {
                                          String header = buildHeader(cookie);
                                          if (LOGGER.isLoggable(Level.FINE)) {
-                                             LOGGER.fine("[" + req.getRequestURI() + "] Adding header " + header + " from cookie " + cookie.getName());
+                                             LOGGER.fine("[XDR-" + id + "][" + req.getRequestURI() + "] Adding header " + header + " from cookie " + cookie.getName());
                                          }
                                          super.addCookie(cookie);
                                          headers.add(header);
@@ -103,7 +107,7 @@ public final class IeCorsFilter implements Filter {
                                          if ("Set-Cookie".equalsIgnoreCase(name)) {
                                              String header = removeHttpOnly(value);
                                              if (LOGGER.isLoggable(Level.FINE)) {
-                                                 LOGGER.fine("[" + req.getRequestURI() + "] Adding header " + header + " from Set-Cookie header " + value);
+                                                 LOGGER.fine("[XDR-" + id + "][" + req.getRequestURI() + "] Adding header " + header + " from Set-Cookie header " + value);
                                              }
                                              headers.add(header);
                                          }
@@ -122,6 +126,12 @@ public final class IeCorsFilter implements Filter {
                                              public String toString() {
                                                  return ServletOutputStream.class.getSimpleName() + "(" + req.getRequestURI() + ")";
                                              }
+
+                                             @Override
+                                             public void close() throws IOException {
+                                                 writeStream(req, res, headers, status, output.toByteArray(), id, true);
+                                                 closed.set(true);
+                                             }
                                          };
                                      }
 
@@ -131,6 +141,12 @@ public final class IeCorsFilter implements Filter {
                                              @Override
                                              public void write(int b) throws IOException {
                                                  output.write(b);
+                                             }
+
+                                             @Override
+                                             public void close() throws IOException {
+                                                 writeStream(req, res, headers, status, output.toByteArray(), id, true);
+                                                 closed.set(true);
                                              }
                                          }), true) {
                                              @Override
@@ -186,65 +202,90 @@ public final class IeCorsFilter implements Filter {
                                  }
             );
 
-            // build header line
-            StringBuilder header = new StringBuilder();
-            for (String cookie : headers) {
-                header.append(header.length() == 0 ? "" : ",").append(cookie);
-            }
+            writeStream(req, res, headers, status, output.toByteArray(), id, false);
 
-            // add session id
-            String sessionHeader = getSessionHeader(req, res);
-            if (sessionHeader != null) {
-                header.insert(0, ",").insert(0, sessionHeader);
-            }
-
-            // prepare header
-            final int len = header.length();
-            final boolean needsHeader = len > 0 || status.get() != 200;
-
-            if (needsHeader) {
-
-                header.append("~").append(status.get()).append("~").append(len).append("~");
-
-                if (LOGGER.isLoggable(Level.FINE)) {
-                    LOGGER.fine("[" + req.getRequestURI() + "] Appending header: " + header);
-                }
-
-                if ("gzip".equals(res.getHeader("Content-Encoding"))) {
-                    if (LOGGER.isLoggable(Level.FINE)) {
-                        LOGGER.fine("[" + req.getRequestURI() + "] Uncompressing GZIP response...");
-                    }
-                    res.setHeader("Content-Encoding", null);
-                    ByteArrayOutputStream uncompressed = new ByteArrayOutputStream();
-                    GZIPInputStream gzipStream = new GZIPInputStream(new ByteArrayInputStream(output.toByteArray()));
-                    int c;
-                    byte[] buffer = new byte[8096];
-                    while ((c = gzipStream.read(buffer)) != -1) {
-                        uncompressed.write(buffer, 0, c);
-                    }
-                    res.setContentLength(header.length() + uncompressed.size());
-                    uncompressed.writeTo(res.getOutputStream());
-                } else {
-                    res.setContentLength(header.length() + output.size());
-                    output.writeTo(res.getOutputStream());
-                }
-                res.getOutputStream().write(header.toString().getBytes());
-                res.setStatus(HttpServletResponse.SC_OK);
-                res.flushBuffer();
-
-            } else {
-
-                if (LOGGER.isLoggable(Level.FINE)) {
-                    LOGGER.fine("[" + req.getRequestURI() + "] No header to append, status=200");
-                }
-
-                res.setContentLength(output.size());
-                output.writeTo(res.getOutputStream());
-                res.setStatus(HttpServletResponse.SC_OK);
-                res.flushBuffer();
-            }
         } else {
             filterChain.doFilter(req, res);
+        }
+    }
+
+    private static long getId(HttpServletRequest req) {
+        try {
+            return Long.parseLong(req.getParameter("_xdr"));
+        } catch (RuntimeException e) {
+            return -1;
+        }
+    }
+
+    private void writeStream(HttpServletRequest req, HttpServletResponse res, List<String> headers, AtomicInteger status, byte[] data, long id, boolean close) throws IOException {
+        if (LOGGER.isLoggable(Level.FINE)) {
+            LOGGER.fine("[XDR-" + id + "][" + req.getRequestURI() + "] Writing stream (length=" + data.length + ", close=" + close + ", suspended=" + req.isAsyncStarted() + "):\n=> " + new String(data));
+        }
+
+        if (req.isAsyncStarted()) {
+            return;
+        }
+
+        // build header line
+        StringBuilder header = new StringBuilder();
+        for (String cookie : headers) {
+            header.append(header.length() == 0 ? "" : ",").append(cookie);
+        }
+
+        // add session id
+        String sessionHeader = getSessionHeader(req, res);
+        if (sessionHeader != null) {
+            header.insert(0, ",").insert(0, sessionHeader);
+        }
+
+        // prepare header
+        final int len = header.length();
+        final boolean needsHeader = len > 0 || status.get() != 200;
+
+        if (needsHeader) {
+
+            header.append("~").append(status.get()).append("~").append(len).append("~");
+
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.fine("[XDR-" + id + "][" + req.getRequestURI() + "] Appending header: " + header);
+            }
+
+            if ("gzip".equals(res.getHeader("Content-Encoding"))) {
+                if (LOGGER.isLoggable(Level.FINE)) {
+                    LOGGER.fine("[XDR-" + id + "][" + req.getRequestURI() + "] Uncompressing GZIP response...");
+                }
+                res.setHeader("Content-Encoding", null);
+                ByteArrayOutputStream uncompressed = new ByteArrayOutputStream();
+                GZIPInputStream gzipStream = new GZIPInputStream(new ByteArrayInputStream(data));
+                int c;
+                byte[] buffer = new byte[8096];
+                while ((c = gzipStream.read(buffer)) != -1) {
+                    uncompressed.write(buffer, 0, c);
+                }
+                res.setContentLength(header.length() + uncompressed.size());
+                uncompressed.writeTo(res.getOutputStream());
+            } else {
+                res.setContentLength(header.length() + data.length);
+                res.getOutputStream().write(data);
+            }
+            res.getOutputStream().write(header.toString().getBytes());
+            res.setStatus(HttpServletResponse.SC_OK);
+            if (close) {
+                res.flushBuffer();
+                res.getOutputStream().close();
+            }
+
+        } else {
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.fine("[XDR-" + id + "][" + req.getRequestURI() + "] No header to append, status=200, length=" + data.length);
+            }
+            res.setContentLength(data.length);
+            res.getOutputStream().write(data);
+            res.setStatus(HttpServletResponse.SC_OK);
+            if (close) {
+                res.flushBuffer();
+                res.getOutputStream().close();
+            }
         }
     }
 
