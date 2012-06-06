@@ -57,7 +57,8 @@
             ReadyState = {UNSENT:0, OPENED:1, LOADING:3, DONE:4},
             debug = window['XDR_DEBUG'] && 'console' in window,
             XDomainRequestAdapter,
-            domain;
+            domain,
+            reqId = 0;
 
         function forEachCookie(names, fn) {
             if (typeof names == 'string') {
@@ -125,9 +126,6 @@
         }
 
         function parseCookies(header) {
-            if (debug) {
-                console.log('[XDR] parsing cookies for header ' + header);
-            }
             if (header.length == 0) {
                 return [];
             }
@@ -159,6 +157,7 @@
                 _reqHeaders = [],
                 _method,
                 _url,
+                _id = reqId++,
                 _setState = function (state) {
                     self.readyState = state;
                     if (typeof self.onreadystatechange === 'function') {
@@ -170,7 +169,7 @@
                         self.responseText = '';
                     }
                     if (debug) {
-                        console.log('[XDR] request end with state ' + state + ' and code ' + code + ' and data length ' + self.responseText.length);
+                        console.log('[XDR-' + _id + '] request end with state ' + state + ' and code ' + code + ' and data length ' + self.responseText.length);
                     }
                     self.status = code;
                     if (!self.responseType) {
@@ -210,16 +209,18 @@
             };
             _xdr.onload = function () {
                 // check if we are using a filter which modify the response
-                var i,
-                    resp = parseResponse(_xdr.responseText || ''),
-                    cooks = parseCookies(resp[2]);
+                var cooks, i, resp = parseResponse(_xdr.responseText || '');
+                if (debug) {
+                    console.log('[XDR-' + reqId + '] parsing cookies for header ' + resp[2]);
+                }
+                cooks = parseCookies(resp[2]);
                 self.responseText = resp[1] || '';
                 if (debug) {
-                    console.log('[XDR] raw data:\n' + _xdr.responseText + '\n parsed response: status=' + resp[0] + ', header=' + resp[2] + ', data=\n' + resp[1]);
+                    console.log('[XDR-' + _id + '] raw data:\n' + _xdr.responseText + '\n parsed response: status=' + resp[0] + ', header=' + resp[2] + ', data=\n' + resp[1]);
                 }
                 for (i = 0; i < cooks.length; i++) {
                     if (debug) {
-                        console.log('[XDR] installing cookie ' + cooks[i]);
+                        console.log('[XDR-' + _id + '] installing cookie ' + cooks[i]);
                     }
                     document.cookie = cooks[i] + ";Domain=" + document.domain;
                 }
@@ -249,15 +250,13 @@
                 _setState(ReadyState.OPENED);
             };
             this.send = function (data) {
-                if (this.timeout) {
-                    _xdr.timeout = this.timeout;
-                }
+                _xdr.timeout = this.timeout;
                 if (sessionCookie || cookies || _reqHeaders.length) {
                     var h, addParam = function (name, value) {
                         var q = _url.indexOf('?');
                         _url += (q == -1 ? '?' : '&') + name + '=' + encodeURIComponent(value);
                         if (debug) {
-                            console.log('[XDR] added parameter ' + name + "=" + value + " => " + _url);
+                            console.log('[XDR-' + _id + '] added parameter ' + name + "=" + value + " => " + _url);
                         }
                     };
                     for (h = 0; h < _reqHeaders.length; h++) {
@@ -271,18 +270,18 @@
                             _url = _url.substring(0, q) + ';' + name + '=' + value + _url.substring(q);
                         }
                         if (debug) {
-                            console.log('[XDR] added cookie ' + _url);
+                            console.log('[XDR-' + _id + '] added cookie ' + _url);
                         }
                     });
                     forEachCookie(cookies, addParam);
-                    addParam('_xdr', 'true');
+                    addParam('_xdr', '' + _id);
                 }
                 if (debug) {
-                    console.log('[XDR] opening ' + _url);
+                    console.log('[XDR-' + _id + '] opening ' + _url);
                 }
                 _xdr.open(_method, _url);
                 if (debug) {
-                    console.log('[XDR] send');
+                    console.log('[XDR-' + _id + '] send, timeout=' + _xdr.timeout);
                 }
                 _xdr.send(data);
             };
