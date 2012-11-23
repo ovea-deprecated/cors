@@ -44,7 +44,7 @@
     if (!('__jquery_xdomain__' in $)
         && $.browser.msie // must be IE
         && 'XDomainRequest' in window // and support XDomainRequest (IE8+)
-        && !('XMLHttpRequest' in window && 'withCredentials' in new XMLHttpRequest()) // and must not support CORS (IE10+)
+        && !(window.XMLHttpRequest && 'withCredentials' in new XMLHttpRequest()) // and must not support CORS (IE10+)
         && document.location.href.indexOf("file:///") == -1) { // and must not be local
 
         $['__jquery_xdomain__'] = $.support.cors = true;
