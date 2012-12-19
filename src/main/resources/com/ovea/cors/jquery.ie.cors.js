@@ -267,7 +267,7 @@
                         if (q == -1) {
                             _url += '?' + name + '=' + value;
                         } else {
-                            _url = _url.substring(0, q) + '?' + name + '=' + value + _url.substring(q);
+                            _url = _url.substring(0, q) + '?' + name + '=' + value + _url.substring(q).replace('?', '&');
                         }
                         if (debug) {
                             console.log('[XDR-' + _id + '] added cookie ' + _url);
