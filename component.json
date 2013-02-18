@@ -1,0 +1,10 @@
+{
+  "name": "cors",
+  "version": "1.9.0",
+  "main": [
+    "./src/main/resources/com/ovea/cors/jquery.ie.cors.js"
+  ],
+  "dependencies": {
+    "jquery": ">=1.7.0"
+  }
+}
