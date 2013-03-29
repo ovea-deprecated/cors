@@ -42,7 +42,7 @@
 (function ($) {
 
     if (!('__jquery_xdomain__' in $)
-        && $.browser.msie // must be IE
+        && /msie/.test(navigator.userAgent.toLowerCase()) // must be IE
         && 'XDomainRequest' in window // and support XDomainRequest (IE8+)
         && !(window.XMLHttpRequest && 'withCredentials' in new XMLHttpRequest()) // and must not support CORS (IE10+)
         && document.location.href.indexOf("file:///") == -1) { // and must not be local
