@@ -262,17 +262,19 @@
                     for (h = 0; h < _reqHeaders.length; h++) {
                         addParam(_reqHeaders[h].k, _reqHeaders[h].v);
                     }
-                    forEachCookie(sessionCookie, function (name, value) {
-                        var q = _url.indexOf('?');
-                        if (q == -1) {
-                            _url += ';' + name + '=' + value;
-                        } else {
-                            _url = _url.substring(0, q) + ';' + name + '=' + value + _url.substring(q);
-                        }
-                        if (debug) {
-                            console.log('[XDR-' + _id + '] added cookie ' + _url);
-                        }
-                    });
+                    if (sessionCookie) {
+                        forEachCookie(sessionCookie, function (name, value) {
+                            var q = _url.indexOf('?');
+                            if (q == -1) {
+                                _url += ';' + name + '=' + value;
+                            } else {
+                                _url = _url.substring(0, q) + ';' + name + '=' + value + _url.substring(q);
+                            }
+                            if (debug) {
+                                console.log('[XDR-' + _id + '] added cookie ' + _url);
+                            }
+                        });
+                    }
                     forEachCookie(cookies, addParam);
                     addParam('_xdr', '' + _id);
                 }
